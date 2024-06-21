@@ -1,6 +1,6 @@
 # Css Code Action
-
-A vscode extension help editing scss/less file with color replace and px convert.
+Forked from https://github.com/kikyous/vscode-css-action
+A vscode extension help editing scss/less file with color replace and px convert, with extensive support for industry-level needs. All changes has been merged into original repo.
 
 
 ## ejs render context: 
