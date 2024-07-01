@@ -1,8 +1,34 @@
 import * as vscode from "vscode";
 import { readFileSync } from "fs";
-import { join } from "path";
-import { render } from 'ejs';
-import tinycolor from 'tinycolor2';
+import path, { join } from "path";
+import { render } from "ejs";
+import tinycolor from "tinycolor2";
+import {
+  LanguageClient,
+	LanguageClientOptions,
+	ServerOptions,
+	TransportKind
+} from 'vscode-languageclient/node'
+
+const LANGUAGES = [
+  'astro',
+  'svelte',
+  'vue',
+  'vue-html',
+  'vue-postcss',
+  'scss',
+  'postcss',
+  'less',
+  'css',
+  'html',
+  'javascript',
+  'javascriptreact',
+  'typescript',
+  'typescriptreact',
+  'source.css.styled',
+]
+
+let clientInstance: LanguageClient;
 
 enum BultinTemplateVar {
   remResult = "_REM_RESULT_",
@@ -36,14 +62,20 @@ function normalizeColorValue(str: string) {
 
 function getVariablesMapper(path: string) {
   const text = readFileSync(path, { encoding: "utf8" });
-  const matches = text.matchAll(/(?<!\/\/\s*)((?:\$|@|--)[\w-]+)\s*:[ \t]*([^;\n]+)/gi);
+  const matches = text.matchAll(
+    /(?<!\/\/\s*)((?:\$|@|--)[\w-]+)\s*:[ \t]*([^;\n]+)/gi
+  );
   const varMapper = new Map<string, Set<string>>();
   if (matches) {
     for (const match of matches) {
       let [varName, varValue] = [match[1], match[2]];
-      varValue = normalizeSizeValue(varValue) || normalizeColorValue(varValue) || varValue || "";
+      varValue =
+        normalizeSizeValue(varValue) ||
+        normalizeColorValue(varValue) ||
+        varValue ||
+        "";
 
-      if (varName.startsWith('--')) {
+      if (varName.startsWith("--")) {
         varName = `var(${varName})`;
       }
       if (!varMapper.get(varValue)) {
@@ -55,17 +87,30 @@ function getVariablesMapper(path: string) {
   return varMapper;
 }
 
-const renderVarNamesTpl = (tplString: string, varNames: Array<string>, context: any) => {
+const renderVarNamesTpl = (
+  tplString: string,
+  varNames: Array<string>,
+  context: any
+) => {
   return varNames.map((varName) => {
-    return render(tplString, { [BultinTemplateVar.varName]: varName, ...context });
+    return render(tplString, {
+      [BultinTemplateVar.varName]: varName,
+      ...context,
+    });
   });
 };
 
-const renderOptions = (optionTpls: string[], varNames: Set<string>, context: any) => {
+const renderOptions = (
+  optionTpls: string[],
+  varNames: Set<string>,
+  context: any
+) => {
   let result: string[] = [];
   for (const option of optionTpls) {
     if (option.includes(BultinTemplateVar.varName)) {
-      result = result.concat(renderVarNamesTpl(option, Array.from(varNames), context));
+      result = result.concat(
+        renderVarNamesTpl(option, Array.from(varNames), context)
+      );
     } else {
       result.push(render(option, context));
     }
@@ -77,11 +122,11 @@ export async function showQuickPick() {
   const quickPick = vscode.window.createQuickPick();
   quickPick.matchOnDescription = true;
   quickPick.ignoreFocusOut = true;
-  quickPick.placeholder = 'Search var name and value';
+  quickPick.placeholder = "Search var name and value";
   const options: vscode.QuickPickItem[] = [];
   variableMapper.forEach((values, key) => {
     options.push(
-      ...Array.from(values).map(i => ({ label: i, description: key }))
+      ...Array.from(values).map((i) => ({ label: i, description: key }))
     );
   });
 
@@ -97,7 +142,11 @@ export async function showQuickPick() {
       return;
     }
     const text = selected.label;
-    editor.edit(textEditorEdit => editor.selections.forEach(selection => textEditorEdit.replace(selection, text)));
+    editor.edit((textEditorEdit) =>
+      editor.selections.forEach((selection) =>
+        textEditorEdit.replace(selection, text)
+      )
+    );
   });
 }
 
@@ -139,10 +188,57 @@ function init(context: vscode.ExtensionContext) {
     )
   );
 
-  context.subscriptions.push(vscode.commands.registerCommand('cssAction.pickVariable', showQuickPick));
+  context.subscriptions.push(
+    vscode.commands.registerCommand("cssAction.pickVariable", showQuickPick)
+  );
+}
+
+/**
+   * 启动lsp
+   * @param context
+   */
+function startServer(context: vscode.ExtensionContext) {
+  const serverModule = context.asAbsolutePath(path.join("dist", "server.js"));
+  // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
+  const debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
+
+  // If the extension is launched in debug mode then the debug server options are used
+  // Otherwise the run options are used
+  const serverOptions: ServerOptions = {
+    run: { module: serverModule, transport: TransportKind.ipc },
+    debug: {
+      module: serverModule,
+      transport: TransportKind.ipc,
+      options: debugOptions,
+    },
+  };
+  const clientOptions: LanguageClientOptions = {
+    documentSelector: LANGUAGES.map((language) => ({
+      scheme: 'file',
+      language,
+    })),
+    synchronize: {
+      fileEvents: [
+        vscode.workspace.createFileSystemWatcher('**/*.css'),
+        vscode.workspace.createFileSystemWatcher('**/*.scss'),
+        vscode.workspace.createFileSystemWatcher('**/*.sass'),
+        vscode.workspace.createFileSystemWatcher('**/*.less'),
+      ],
+    },
+  };
+  clientInstance = new LanguageClient(
+    'cssVariables',
+    'CSS Variables Language Server',
+    serverOptions,
+    clientOptions
+  );
+
+  // Start the client. This will also launch the server
+  clientInstance.start();
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  startServer(context)
   init(context);
   vscode.workspace.onDidChangeConfiguration(() => init(context));
 }
@@ -223,7 +319,7 @@ abstract class RegexReplacer implements vscode.CodeActionProvider {
  * Provides code actions for converting px.
  */
 class PxReplacer extends RegexReplacer {
-  public regex = new RegExp("(-?\\d+(px|rem|em)\\s*)+(?![^(]*\\))", 'i');
+  public regex = new RegExp("(-?\\d+(px|rem|em)\\s*)+(?![^(]*\\))", "i");
 
   private calcRem(originText: string): string {
     return originText
@@ -247,7 +343,7 @@ class PxReplacer extends RegexReplacer {
     const varNames = variableMapper.get(normalizedOrigin) || new Set();
     const context = {
       [BultinTemplateVar.matchedText]: originText,
-      [BultinTemplateVar.remResult]: this.calcRem(normalizedOrigin)
+      [BultinTemplateVar.remResult]: this.calcRem(normalizedOrigin),
     };
     return renderOptions(pxReplaceOptions, varNames, context);
   }
@@ -257,15 +353,13 @@ class PxReplacer extends RegexReplacer {
  * Provides code actions for converting hex color string to a color var.
  */
 
-
 const colorRegexParts = [
-  '(#[0-9a-f]{3,8}\\b)',
-  '(rgb|hsl)a?[^)]*\\)',
-  `(\\b(${Object.keys(tinycolor.names).join('|')})\\b)`
+  "(#[0-9a-f]{3,8}\\b)",
+  "(rgb|hsl)a?[^)]*\\)",
+  `(\\b(${Object.keys(tinycolor.names).join("|")})\\b)`,
 ];
 
-const colorRegex = new RegExp(colorRegexParts.join("|"), 'i');
-
+const colorRegex = new RegExp(colorRegexParts.join("|"), "i");
 
 class ColorVarReplacer extends RegexReplacer {
   public regex = colorRegex;
@@ -274,7 +368,7 @@ class ColorVarReplacer extends RegexReplacer {
     const colorStr = tinycolor(originText).toHex8String();
     const varNames = variableMapper.get(colorStr) || new Set();
     const context = {
-      [BultinTemplateVar.matchedText]: originText
+      [BultinTemplateVar.matchedText]: originText,
     };
 
     return renderOptions(colorReplaceOptions, varNames, context);

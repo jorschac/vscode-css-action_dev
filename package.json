@@ -57,24 +57,25 @@
       }
     },
     "commands": [
-			{
-				"command": "cssAction.pickVariable",
-				"title": "CssAction: Pick css variable"
-			}
-		]
+      {
+        "command": "cssAction.pickVariable",
+        "title": "CssAction: Pick css variable"
+      }
+    ]
   },
   "activationEvents": [
+    "onLanguage:css",
     "onLanguage:scss",
     "onLanguage:less",
     "onLanguage:vue"
   ],
-	"main": "./dist/extension.js",
-	"scripts": {
-		"vscode:prepublish": "npm run package",
-		"dev": "webpack --mode development --devtool source-map --watch ",
-		"package": "webpack --mode production",
-		"test-compile": "tsc -p ./"
-	},
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "dev": "webpack --mode development --devtool source-map --watch ",
+    "package": "webpack --mode production",
+    "test-compile": "tsc -p ./"
+  },
   "devDependencies": {
     "@types/ejs": "^3.0.5",
     "@types/node": "^16.11.7",
@@ -83,13 +84,16 @@
     "@typescript-eslint/eslint-plugin": "^3.0.2",
     "@typescript-eslint/parser": "^3.0.2",
     "eslint": "^7.1.0",
-    "typescript": "^4.8.2",
     "ts-loader": "^9.3.0",
-		"webpack": "^5.72.1",
-		"webpack-cli": "^4.10.0"
+    "typescript": "^4.8.2",
+    "webpack": "^5.72.1",
+    "webpack-cli": "^4.10.0"
   },
   "dependencies": {
     "ejs": "^3.1.5",
-    "tinycolor2": "^1.4.2"
+    "tinycolor2": "^1.4.2",
+    "vscode-languageclient": "9.0.1",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11"
   }
 }
