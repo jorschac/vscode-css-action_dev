@@ -32,6 +32,11 @@
           "description": "root font size for rem calc.",
           "default": 16
         },
+        "cssAction.baseDir": {
+          "type": "string",
+          "description": "Base directory to your variables file. e.g cssAction.baseDir='/Users/name_1/dir_2/project_3'; cssAction.variablesFile='src/variables/vriable.css'. Final absolute path to your variable file will be: '/Users/name_1/dir_2/project_3/src/variables/vriable.css' Default value will be the toppest directory of your project.",
+          "default": ""
+        },
         "cssAction.pxReplaceOptions": {
           "type": "array",
           "items": {
@@ -77,8 +82,10 @@
     "test-compile": "tsc -p ./"
   },
   "devDependencies": {
+    "@types/culori": "^2.1.1",
     "@types/ejs": "^3.0.5",
     "@types/node": "^16.11.7",
+    "@types/postcss-less": "^4.0.6",
     "@types/tinycolor2": "^1.4.3",
     "@types/vscode": "^1.32.0",
     "@typescript-eslint/eslint-plugin": "^3.0.2",
@@ -90,7 +97,13 @@
     "webpack-cli": "^4.10.0"
   },
   "dependencies": {
+    "axios": "^1.7.2",
+    "culori": "^4.0.1",
     "ejs": "^3.1.5",
+    "fast-glob": "^3.3.2",
+    "postcss": "^8.4.39",
+    "postcss-less": "^6.0.0",
+    "postcss-scss": "^4.0.9",
     "tinycolor2": "^1.4.2",
     "vscode-languageclient": "9.0.1",
     "vscode-languageserver": "^9.0.1",
