@@ -32,6 +32,11 @@
           "description": "root font size for rem calc.",
           "default": 16
         },
+        "cssAction.baseDir": {
+          "type": "string",
+          "description": "Base directory to your variables file. e.g cssAction.baseDir='/Users/name_1/dir_2/project_3'; cssAction.variablesFile='src/variables/vriable.css'. Final absolute path to your variable file will be: '/Users/name_1/dir_2/project_3/src/variables/vriable.css' Default value will be the toppest directory of your project.",
+          "default": ""
+        },
         "cssAction.pxReplaceOptions": {
           "type": "array",
           "items": {

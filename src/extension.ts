@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { render } from "ejs";
 import tinycolor from "tinycolor2";
-import startServer from './client'
+import CssVariableManager from './managers/CssVariableManager'
+import pathUtils from 'path'
 
 enum BultinTemplateVar {
   remResult = "_REM_RESULT_",
@@ -11,10 +12,12 @@ enum BultinTemplateVar {
   matchedText = "_MATCHED_TEXT_",
 }
 let variablesFilePath: string | undefined;
+let baseDir: string
 let variableMapper = new Map<string, Set<string>>();
 let rootFontSize: number;
 let pxReplaceOptions: string[];
 let colorReplaceOptions: string[];
+const manager = new CssVariableManager()
 
 function normalizeSizeValue(str: string) {
   const sizeReg = /\b\d+(px|rem|em)\b/g;
@@ -36,29 +39,32 @@ function normalizeColorValue(str: string) {
 }
 
 function getVariablesMapper(path: string) {
-  const text = readFileSync(path, { encoding: "utf8" });
-  const matches = text.matchAll(
-    /(?<!\/\/\s*)((?:\$|@|--)[\w-]+)\s*:[ \t]*([^;\n]+)/gi
-  );
+  const directory = pathUtils.dirname(path)
+  console.log('展示一下var文件的DIRECTORY', directory)
+  manager.parseAndSyncVariables([directory])
   const varMapper = new Map<string, Set<string>>();
-  if (matches) {
-    for (const match of matches) {
-      let [varName, varValue] = [match[1], match[2]];
-      varValue =
-        normalizeSizeValue(varValue) ||
-        normalizeColorValue(varValue) ||
-        varValue ||
-        "";
+  const cached = manager.getAll()
+  console.log('展示所有cached数据？', cached)
 
-      if (varName.startsWith("--")) {
-        varName = `var(${varName})`;
-      }
-      if (!varMapper.get(varValue)) {
-        varMapper.set(varValue, new Set());
-      }
-      varMapper.get(varValue)!.add(varName);
-    }
-  }
+
+  // if (matches) {
+  //   for (const match of matches) {
+  //     let [varName, varValue] = [match[1], match[2]];
+  //     varValue =
+  //       normalizeSizeValue(varValue) ||
+  //       normalizeColorValue(varValue) ||
+  //       varValue ||
+  //       "";
+
+  //     if (varName.startsWith("--")) {
+  //       varName = `var(${varName})`;
+  //     }
+  //     if (!varMapper.get(varValue)) {
+  //       varMapper.set(varValue, new Set());
+  //     }
+  //     varMapper.get(varValue)!.add(varName);
+  //   }
+  // }
   return varMapper;
 }
 
@@ -126,20 +132,33 @@ export async function showQuickPick() {
 }
 
 function init(context: vscode.ExtensionContext) {
+  console.log('拓展开始载入了。。。')
   const workbenchConfig = vscode.workspace.getConfiguration("cssAction");
   variablesFilePath = workbenchConfig.get<string>("variablesFile");
+  baseDir = workbenchConfig.get<string>("baseDir") || '';
   rootFontSize = workbenchConfig.get<number>("rootFontSize")!;
   pxReplaceOptions = workbenchConfig.get<string[]>("pxReplaceOptions")!;
   colorReplaceOptions = workbenchConfig.get<string[]>("colorReplaceOptions")!;
 
   context.subscriptions.forEach((s) => s.dispose());
-
+  console.log('配置信息：', {variablesFilePath, baseDir, rootFontSize, pxReplaceOptions, colorReplaceOptions})
+  // local relative path OR public url
   if (variablesFilePath) {
     const fullPath = join(
-      vscode.workspace.workspaceFolders![0].uri.fsPath || "",
+      baseDir.length? baseDir : vscode.workspace.workspaceFolders![0].uri.fsPath,
       variablesFilePath
     );
-
+    console.log('看一看fullPath是什么', fullPath)
+    if(!existsSync(fullPath)) {
+      vscode.window.showWarningMessage('The path to your variables file doesn\'t seem to exist, check path in your extension settings and restart VSCode', 'yes')
+      .then(input => {
+        console.log('检查弹窗的用户输入', input)
+        if(typeof input === 'string' && input === 'yes') {
+          vscode.commands.executeCommand('workbench.action.openSettings')
+        }
+      })
+    }
+    manager.clearAllCache()
     variableMapper = getVariablesMapper(fullPath);
 
     context.subscriptions.push(
@@ -169,7 +188,7 @@ function init(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  startServer(context)
+  console.log('哥们儿不会连这儿都没执行到吧？')
   init(context);
   vscode.workspace.onDidChangeConfiguration(() => init(context));
 }
